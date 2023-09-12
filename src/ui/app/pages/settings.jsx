@@ -343,7 +343,7 @@ const Whitelisted = () => {
             >
               <Image
                 width="24px"
-                src={`chrome://favicon/size/16@2x/${origin}`}
+                src={`chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${origin}&size=32`}
                 fallback={<SkeletonCircle width="24px" height="24px" />}
               />
               <Text>{origin.split('//')[1]}</Text>
@@ -443,6 +443,7 @@ const Network = () => {
           <option value={NETWORK_ID.preprod}>Preprod</option>
           <option value={NETWORK_ID.preview}>Preview</option>
           <option value={NETWORK_ID.testnet}>Testnet</option>
+          <option value={NETWORK_ID.sancho}>SanchoNet</option>
         </Select>
       </Box>
       <Box height="8" />

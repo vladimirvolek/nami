@@ -11,23 +11,20 @@ import {
   submitTx,
   verifyPayload,
   verifyTx,
+  // CIP-95
+  getPubDRepKey,
+  getRegisteredPubStakeKeys,
+  getUnregisteredPubStakeKeys,
 } from '../../api/extension';
 import { Messaging } from '../../api/messaging';
 import {
   APIError,
   METHOD,
-  NETWORKD_ID_NUMBER,
+  NETWORK_ID_NUMBER,
   POPUP,
   SENDER,
   TARGET,
 } from '../../config/config';
-
-// TODO: For MV3
-// globalThis.document = {
-//   getElementsByTagName: () => [],
-//   createElement: () => ({ setAttribute: () => {} }),
-//   head: { appendChild: () => {} },
-// };
 
 const app = Messaging.createBackgroundController();
 
@@ -251,7 +248,7 @@ app.add(METHOD.getNetworkId, async (request, sendResponse) => {
   if (network)
     sendResponse({
       id: request.id,
-      data: NETWORKD_ID_NUMBER[network.id],
+      data: NETWORK_ID_NUMBER[network.id],
       target: TARGET,
       sender: SENDER.extension,
     });
@@ -344,14 +341,63 @@ app.add(METHOD.signTx, async (request, sendResponse) => {
   }
 });
 
-app.listen();
+// CIP-95
 
-//delete localStorage globalModel
-// chrome.runtime.onStartup.addListener(function () {
-//   const entry = Object.keys(localStorage).find((l) =>
-//     l.includes('globalModel')
-//   );
-//   window.localStorage.removeItem(entry);
-// });
-// const entry = Object.keys(localStorage).find((l) => l.includes('globalModel'));
-// window.localStorage.removeItem(entry);
+app.add(METHOD.getPubDRepKey, async (request, sendResponse) => {
+  const pubDRepKey = await getPubDRepKey();
+  if (pubDRepKey) {
+    sendResponse({
+      id: request.id,
+      data: pubDRepKey,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  } else {
+    sendResponse({
+      id: request.id,
+      error: APIError.InternalError,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  }
+});
+
+app.add(METHOD.getRegisteredPubStakeKeys, async (request, sendResponse) => {
+  const pubStakeKeys = await getRegisteredPubStakeKeys();
+  if (pubStakeKeys) {
+    sendResponse({
+      id: request.id,
+      data: pubStakeKeys,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  } else {
+    sendResponse({
+      id: request.id,
+      error: APIError.InternalError,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  }
+});
+
+app.add(METHOD.getUnregisteredPubStakeKeys, async (request, sendResponse) => {
+  const pubStakeKeys = await getUnregisteredPubStakeKeys();
+  if (pubStakeKeys) {
+    sendResponse({
+      id: request.id,
+      data: pubStakeKeys,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  } else {
+    sendResponse({
+      id: request.id,
+      error: APIError.InternalError,
+      target: TARGET,
+      sender: SENDER.extension,
+    });
+  }
+});
+
+app.listen();

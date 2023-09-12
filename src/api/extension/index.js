@@ -36,7 +36,7 @@ import {
 } from '../util';
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb';
 import Ada, { HARDENED } from '@cardano-foundation/ledgerjs-hw-app-cardano';
-import TrezorConnect from '../../../temporary_modules/trezor-connect';
+import TrezorConnect from '@trezor/connect-web';
 import AssetFingerprint from '@emurgo/cip14-js';
 import Web3Utils from 'web3-utils';
 import { milkomedaNetworks } from '@dcspark/milkomeda-constants';
@@ -74,6 +74,7 @@ export const decryptWithPassword = async (password, encryptedKeyHex) => {
   await Loader.load();
   const passwordHex = Buffer.from(password).toString('hex');
   let decryptedHex;
+
   try {
     decryptedHex = Loader.Cardano.decrypt_with_password(
       passwordHex,
@@ -467,6 +468,9 @@ export const setNetwork = async (network) => {
   } else if (network.id === NETWORK_ID.preview) {
     id = NETWORK_ID.preview;
     node = NODE.preview;
+  } else if (network.id === NETWORK_ID.sancho) {
+    id = NETWORK_ID.sancho;
+    node = NODE.sancho;
   } else {
     id = NETWORK_ID.preprod;
     node = NODE.preprod;
@@ -653,6 +657,7 @@ export const isValidAddress = async (address) => {
       (addr.network_id() === 0 &&
         (network.id === NETWORK_ID.testnet ||
           network.id === NETWORK_ID.preview ||
+          network.id === NETWORK_ID.sancho ||
           network.id === NETWORK_ID.preprod))
     )
       return addr.to_bytes();
@@ -665,6 +670,7 @@ export const isValidAddress = async (address) => {
       (addr.network_id() === 0 &&
         (network.id === NETWORK_ID.testnet ||
           network.id === NETWORK_ID.preview ||
+          network.id === NETWORK_ID.sancho ||
           network.id === NETWORK_ID.preprod))
     )
       return addr.to_address().to_bytes();
@@ -683,6 +689,7 @@ const isValidAddressBytes = async (address) => {
       (addr.network_id() === 0 &&
         (network.id === NETWORK_ID.testnet ||
           network.id === NETWORK_ID.preview ||
+          network.id === NETWORK_ID.sancho ||
           network.id === NETWORK_ID.preprod))
     )
       return true;
@@ -695,6 +702,7 @@ const isValidAddressBytes = async (address) => {
       (addr.network_id() === 0 &&
         (network.id === NETWORK_ID.testnet ||
           network.id === NETWORK_ID.preview ||
+          network.id === NETWORK_ID.sancho ||
           network.id === NETWORK_ID.preprod))
     )
       return true;
@@ -1244,6 +1252,8 @@ export const requestAccountKey = async (password, accountIndex) => {
     accountKey,
     paymentKey: accountKey.derive(0).derive(0).to_raw_key(),
     stakeKey: accountKey.derive(2).derive(0).to_raw_key(),
+    // cip-95 -----------------------------
+    dRepKey: accountKey.derive(3).derive(0).to_raw_key(),
   };
 };
 
@@ -1264,7 +1274,7 @@ export const createAccount = async (name, password, accountIndex = null) => {
     ? Object.keys(getNativeAccounts(existingAccounts)).length
     : 0;
 
-  let { accountKey, paymentKey, stakeKey } = await requestAccountKey(
+  let { accountKey, paymentKey, stakeKey, dRepKey } = await requestAccountKey(
     password,
     index
   );
@@ -1274,13 +1284,23 @@ export const createAccount = async (name, password, accountIndex = null) => {
   ); // BIP32 Public key
   const paymentKeyPub = paymentKey.to_public();
   const stakeKeyPub = stakeKey.to_public();
+  // cip-95 -----------------------------
+  const dRepKeyPub = Buffer.from(dRepKey.to_public().as_bytes()).toString(
+    'hex'
+  );
+  const stakeKeyPubHex = Buffer.from(stakeKeyPub.as_bytes()).toString(
+    'hex'
+  );
+  // cip-95 -----------------------------
 
   accountKey.free();
   paymentKey.free();
   stakeKey.free();
+  dRepKey.free();
   accountKey = null;
   paymentKey = null;
   stakeKey = null;
+  dRepKey = null;
 
   const paymentKeyHash = Buffer.from(
     paymentKeyPub.hash().to_bytes(),
@@ -1359,7 +1379,14 @@ export const createAccount = async (name, password, accountIndex = null) => {
         paymentAddr: paymentAddrTestnet,
         rewardAddr: rewardAddrTestnet,
       },
+      [NETWORK_ID.sancho]: {
+        ...networkDefault,
+        paymentAddr: paymentAddrTestnet,
+        rewardAddr: rewardAddrTestnet,
+      },
       avatar: Math.random().toString(),
+      dRepKeyPub,
+      stakeKeyPub: stakeKeyPubHex,
     },
   };
 
@@ -1457,6 +1484,11 @@ export const createHWAccounts = async (accounts) => {
         paymentAddr: paymentAddrTestnet,
         rewardAddr: rewardAddrTestnet,
       },
+      [NETWORK_ID.sancho]: {
+        ...networkDefault,
+        paymentAddr: paymentAddrTestnet,
+        rewardAddr: rewardAddrTestnet,
+      },
       avatar: Math.random().toString(),
     };
   });
@@ -1483,6 +1515,60 @@ export const getNativeAccounts = (accounts) => {
     );
   return nativeAccounts;
 };
+
+// CIP-95 -----------------------------
+
+// Get the account's pub DRep key
+export const getPubDRepKey = async () => {
+  await Loader.load();
+  const currentAccount = await getCurrentAccount();
+  return currentAccount.dRepKeyPub;
+};
+
+// Get the account's pub stake key
+export const getPubStakeKey = async () => {
+  await Loader.load();
+  const currentAccount = await getCurrentAccount();
+  return currentAccount.stakeKeyPub;
+};
+
+// Check if stake key is active or not
+export const isStakeKeyRegistered = async () => {
+  const currentAccount = await getCurrentAccount();
+  let registrations = await blockfrostRequest(
+    `/accounts/${currentAccount.rewardAddr}/registrations`
+  );
+  // if error return false
+  if (!registrations || registrations.error || registrations.length == 0){
+    return false;
+  }
+  // if the most recent action was to register
+  if((registrations.reverse())[0].action == "registered"){
+    return true;
+  }
+
+  return false;
+};
+
+// If account's stake key registered return stake key, otherwise return []
+export const getRegisteredPubStakeKeys = async () => {
+  if (await isStakeKeyRegistered()){
+    return [(await getPubStakeKey())];
+  } else {
+    return [];
+  }
+}
+
+// If account's stake key registered return [], otherwise return stake key
+export const getUnregisteredPubStakeKeys = async () => {
+  if (await isStakeKeyRegistered()){
+    return [];
+  } else {
+    return [(await getPubStakeKey())];
+  }
+}
+
+// CIP-95 -----------------------------
 
 export const indexToHw = (accountIndex) => ({
   device: accountIndex.split('-')[0],
@@ -1531,11 +1617,8 @@ export const initHW = async ({ device, id }) => {
     await appAda.getVersion(); // check if Ledger has Cardano app opened
     return appAda;
   } else if (device == HW.trezor) {
-    const url = chrome.runtime.getURL('Trezor/');
     try {
       await TrezorConnect.init({
-        connectSrc: url,
-        webusb: true,
         manifest: {
           email: 'namiwallet.cardano@gmail.com',
           appUrl: 'http://namiwallet.io',
@@ -1647,6 +1730,7 @@ export const createWallet = async (name, seedPhrase, password) => {
       password,
       searchIndex
     );
+
     const paymentKeyHashBech32 = paymentKey
       .to_public()
       .hash()
@@ -1673,6 +1757,7 @@ export const createWallet = async (name, seedPhrase, password) => {
   }
 
   password = null;
+
   await switchAccount(index);
 
   return true;

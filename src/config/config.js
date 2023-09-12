@@ -18,6 +18,10 @@ export const METHOD = {
   //internal
   requestData: 'requestData',
   returnData: 'returnData',
+  // CIP-95
+  getPubDRepKey: 'getPubDRepKey',
+  getRegisteredPubStakeKeys: 'getRegisteredPubStakeKeys',
+  getUnregisteredPubStakeKeys: 'getUnregisteredPubStakeKeys',
 };
 
 /*
@@ -68,6 +72,7 @@ export const NODE = {
   testnet: 'https://cardano-testnet.blockfrost.io/api/v0',
   preview: 'https://cardano-preview.blockfrost.io/api/v0',
   preprod: 'https://cardano-preprod.blockfrost.io/api/v0',
+  sancho: 'https://cardano-sanchonet.blockfrost.io/api/v0',
 };
 
 export const NETWORK_ID = {
@@ -75,13 +80,15 @@ export const NETWORK_ID = {
   testnet: 'testnet',
   preview: 'preview',
   preprod: 'preprod',
+  sancho: 'sancho',
 };
 
-export const NETWORKD_ID_NUMBER = {
+export const NETWORK_ID_NUMBER = {
   mainnet: 1,
   testnet: 0,
   preview: 0,
   preprod: 0,
+  sancho: 0,
 };
 
 export const POPUP = {
@@ -92,6 +99,7 @@ export const POPUP = {
 export const TAB = {
   hw: 'hwTab',
   createWallet: 'createWalletTab',
+  trezorTx: 'trezorTx',
 };
 
 export const HW = {
@@ -186,3 +194,5 @@ export const TxSignError = {
   },
   UserDeclined: { code: 2, info: 'User declined to sign the transaction.' },
 };
+
+export const EXTENSIONS = ['cip-95'];

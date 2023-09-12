@@ -86,3 +86,26 @@ export const submitTx = async (tx) => {
 };
 
 export { on, off } from './eventRegistration';
+
+// CIP-95
+
+export const getPubDRepKey = async () => {
+  const result = await Messaging.sendToContent({ 
+    method: METHOD.getPubDRepKey 
+  });
+  return result.data;
+};
+
+export const getRegisteredPubStakeKeys = async () => {
+  const result = await Messaging.sendToContent({ 
+    method: METHOD.getRegisteredPubStakeKeys 
+  });
+  return result.data;
+};
+
+export const getUnregisteredPubStakeKeys = async () => {
+  const result = await Messaging.sendToContent({ 
+    method: METHOD.getUnregisteredPubStakeKeys 
+  });
+  return result.data;
+};
